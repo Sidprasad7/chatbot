@@ -41,6 +41,8 @@ app.post('/webhook', (req, res) => {
       console.log(`Received message: ${msg_body} from ${from}`);
 
       // You can add logic here (reply with travel details, booking, etc.)
+      sendMessage(phone_number_id, from, "Hello! 👋 How can I assist you with your travel plans today?");
+
     }
     res.sendStatus(200);
   } else {
