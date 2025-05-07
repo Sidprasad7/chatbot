@@ -1,3 +1,4 @@
+const axios = require('axios');
 const express = require('express');
 const bodyParser = require('body-parser');
 require('dotenv').config();
@@ -49,6 +50,30 @@ app.post('/webhook', (req, res) => {
     res.sendStatus(404);
   }
 });
+async function sendMessage(phoneNumberId, to, message) {
+  const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
+
+  try {
+    const response = await axios.post(
+      url,
+      {
+        messaging_product: "whatsapp",
+        to: to,
+        text: { body: message }
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        },
+      }
+    );
+    console.log("Message sent:", response.data);
+  } catch (err) {
+    console.error("Error sending message:", err.response?.data || err.message);
+  }
+}
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
