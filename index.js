@@ -38,7 +38,7 @@ app.post('/webhook', async (req, res) => {
     try {
       // ✅ Correct v1beta endpoint for AI Studio
       const geminiRes = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/chat-bison-001:generateContent',
+        'https://generativelanguage.googleapis.com/v1/models/chat-bison-001:generateContent',
         {
           contents: [{ parts: [{ text: userMessage }] }]
         },
