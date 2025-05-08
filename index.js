@@ -36,41 +36,40 @@ app.post('/webhook', async (req, res) => {
     const senderId = message.from;
 
     try {
-      // ✅ Correct v1beta endpoint for AI Studio
-     const geminiRes = await axios.post(
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent',
-  {
-    contents: [{ parts: [{ text: userMessage }] }]
-  },
-  {
-    params: { key: API_KEY },
-    headers: { 'Content-Type': 'application/json' },
-    responseType: 'stream'
-  }
-);
+      const geminiRes = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent',
+        {
+          contents: [{ parts: [{ text: userMessage }] }]
+        },
+        {
+          params: { key: API_KEY },
+          headers: { 'Content-Type': 'application/json' },
+          responseType: 'stream'
+        }
+      );
 
-// Collect streamed chunks into a single string
-let reply = '';
-for await (const chunk of geminiRes.data) {
-  const lines = chunk.toString().split('\n').filter(Boolean);
-  for (const line of lines) {
-    if (line.startsWith('data: ')) {
-      const data = JSON.parse(line.slice(6));
-      const part = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (part) reply += part;
-    }
-  }
-}
+      // ✅ Collect streamed chunks
+      let reply = '';
+      for await (const chunk of geminiRes.data) {
+        const lines = chunk.toString().split('\n').filter(Boolean);
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+            const part = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (part) reply += part;
+          }
+        }
+      }
 
-      const reply = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response from Gemini.";
+      console.log('Reply from Gemini:', reply);
 
-      // Send the reply back to the user via WhatsApp
+      // ✅ Send to WhatsApp
       await axios.post(
         `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
         {
           messaging_product: 'whatsapp',
           to: senderId,
-          text: { body: reply }
+          text: { body: reply || "Sorry, no response from Gemini." }
         },
         {
           headers: {
@@ -86,6 +85,7 @@ for await (const chunk of geminiRes.data) {
 
   res.sendStatus(200);
 });
+
 
 
 app.listen(PORT, () => {
