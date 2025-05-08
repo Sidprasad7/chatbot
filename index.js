@@ -58,7 +58,7 @@ for (const line of lines) {
     if (part) reply += part;
   }
 }
-      }
+    
 
       console.log('Reply from Gemini:', reply);
 
