@@ -1,7 +1,17 @@
-// Add these at the top
-const VERIFY_TOKEN = 'your_custom_verify_token'; // Pick a string
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const express = require('express');
+const axios = require('axios');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 3000;
+const VERIFY_TOKEN = 'your_verify_token';
 const META_TOKEN = process.env.META_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const API_KEY = process.env.GEMINI_API_KEY;
 
 // Webhook verification
 app.get('/webhook', (req, res) => {
@@ -17,7 +27,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Handle incoming WhatsApp messages
+// Webhook message handler
 app.post('/webhook', async (req, res) => {
   const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
@@ -25,7 +35,6 @@ app.post('/webhook', async (req, res) => {
     const userMessage = message.text.body;
     const senderId = message.from;
 
-    // Gemini response
     try {
       const geminiRes = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
@@ -38,7 +47,6 @@ app.post('/webhook', async (req, res) => {
 
       const reply = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
 
-      // Send message back to WhatsApp
       await axios.post(
         `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
         {
@@ -54,9 +62,13 @@ app.post('/webhook', async (req, res) => {
         }
       );
     } catch (err) {
-      console.error("Error handling WhatsApp message:", err.response?.data || err.message);
+      console.error('Error sending message:', err.response?.data || err.message);
     }
   }
 
-  res.sendStatus(200); // Always respond with 200
+  res.sendStatus(200);
+});
+
+app.listen(PORT, () => {
+  console.log(`Bot running on port ${PORT}`);
 });
