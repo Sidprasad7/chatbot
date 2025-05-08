@@ -36,17 +36,21 @@ app.post('/webhook', async (req, res) => {
     const senderId = message.from;
 
     try {
+      // ✅ Correct v1beta endpoint for AI Studio
       const geminiRes = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
-        { contents: [{ parts: [{ text: userMessage }] }] },
         {
-          params: { key: API_KEY },
+          contents: [{ parts: [{ text: userMessage }] }]
+        },
+        {
+          params: { key: API_KEY }, // your GEMINI_API_KEY from AI Studio
           headers: { 'Content-Type': 'application/json' }
         }
       );
 
-      const reply = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
+      const reply = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response from Gemini.";
 
+      // Send the reply back to the user via WhatsApp
       await axios.post(
         `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
         {
@@ -62,12 +66,13 @@ app.post('/webhook', async (req, res) => {
         }
       );
     } catch (err) {
-      console.error('Error sending message:', err.response?.data || err.message);
+      console.error('❌ Error sending message:', err.response?.data || err.message);
     }
   }
 
   res.sendStatus(200);
 });
+
 
 app.listen(PORT, () => {
   console.log(`Bot running on port ${PORT}`);
