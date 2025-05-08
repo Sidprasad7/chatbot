@@ -44,21 +44,20 @@ app.post('/webhook', async (req, res) => {
         {
           params: { key: API_KEY },
           headers: { 'Content-Type': 'application/json' },
-          responseType: 'stream'
+          responseType: 'text'
         }
       );
 
       // ✅ Collect streamed chunks
       let reply = '';
-      for await (const chunk of geminiRes.data) {
-        const lines = chunk.toString().split('\n').filter(Boolean);
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-            const part = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (part) reply += part;
-          }
-        }
+const lines = geminiRes.data.toString().split('\n');
+for (const line of lines) {
+  if (line.startsWith('data: ')) {
+    const json = JSON.parse(line.slice(6));
+    const part = json.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (part) reply += part;
+  }
+}
       }
 
       console.log('Reply from Gemini:', reply);
