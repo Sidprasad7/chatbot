@@ -1,0 +1,16 @@
+[
+  {
+    "city": "Mumbai",
+    "hotels": [
+      { "name": "Taj Palace", "price": 200 },
+      { "name": "Oberoi", "price": 150 }
+    ]
+  },
+  {
+    "city": "Delhi",
+    "hotels": [
+      { "name": "Le Meridien", "price": 180 },
+      { "name": "Radisson", "price": 120 }
+    ]
+  }
+]
