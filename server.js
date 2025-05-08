@@ -1,80 +1,53 @@
-const axios = require('axios');
 const express = require('express');
-const bodyParser = require('body-parser');
+const axios = require('axios');
+const { OpenAI } = require('openai');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json());
 
-app.use(bodyParser.json());
-
-// Verification Endpoint
-app.get('/webhook', (req, res) => {
-  const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-
-  if (mode && token && mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('Webhook verified');
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
-  }
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-// Message Receiver
-app.post('/webhook', (req, res) => {
-  const body = req.body;
+app.post('/webhook', async (req, res) => {
+  const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const sender = message?.from;
+  const userText = message?.text?.body;
 
-  if (body.object) {
-    if (
-      body.entry &&
-      body.entry[0].changes &&
-      body.entry[0].changes[0].value.messages &&
-      body.entry[0].changes[0].value.messages[0]
-    ) {
-      const phone_number_id = body.entry[0].changes[0].value.metadata.phone_number_id;
-      const from = body.entry[0].changes[0].value.messages[0].from; // WhatsApp ID
-      const msg_body = body.entry[0].changes[0].value.messages[0].text.body;
+  if (userText && sender) {
+    try {
+      // Ask ChatGPT
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: userText }],
+      });
 
-      console.log(`Received message: ${msg_body} from ${from}`);
+      const reply = completion.choices[0].message.content;
 
-      // You can add logic here (reply with travel details, booking, etc.)
-      sendMessage(phone_number_id, from, "Hello! 👋 How can I assist you with your travel plans today?");
-
-    }
-    res.sendStatus(200);
-  } else {
-    res.sendStatus(404);
-  }
-});
-async function sendMessage(phoneNumberId, to, message) {
-  const url = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
-
-  try {
-    const response = await axios.post(
-      url,
-      {
-        messaging_product: "whatsapp",
-        to: to,
-        text: { body: message }
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+      // Send response back to WhatsApp
+      await axios.post(
+        'https://graph.facebook.com/v18.0/YOUR_PHONE_NUMBER_ID/messages',
+        {
+          messaging_product: 'whatsapp',
+          to: sender,
+          text: { body: reply },
         },
-      }
-    );
-    console.log("Message sent:", response.data);
-  } catch (err) {
-    console.error("Error sending message:", err.response?.data || err.message);
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    } catch (err) {
+      console.error('Error processing message:', err.message);
+    }
   }
-}
 
+  res.sendStatus(200);
+});
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(process.env.PORT || 3000, () => {
+  console.log('Server is running');
 });
