@@ -37,16 +37,30 @@ app.post('/webhook', async (req, res) => {
 
     try {
       // ✅ Correct v1beta endpoint for AI Studio
-      const geminiRes = await axios.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/chat-bison-001:generateContent',
-        {
-          contents: [{ parts: [{ text: userMessage }] }]
-        },
-        {
-          params: { key: API_KEY }, // your GEMINI_API_KEY from AI Studio
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+     const geminiRes = await axios.post(
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent',
+  {
+    contents: [{ parts: [{ text: userMessage }] }]
+  },
+  {
+    params: { key: API_KEY },
+    headers: { 'Content-Type': 'application/json' },
+    responseType: 'stream'
+  }
+);
+
+// Collect streamed chunks into a single string
+let reply = '';
+for await (const chunk of geminiRes.data) {
+  const lines = chunk.toString().split('\n').filter(Boolean);
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      const data = JSON.parse(line.slice(6));
+      const part = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (part) reply += part;
+    }
+  }
+}
 
       const reply = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response from Gemini.";
 
