@@ -10,26 +10,43 @@ const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN = "travelbot123";
 const META_TOKEN = process.env.META_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const HF_API_KEY = process.env.HF_API_KEY; // Hugging Face API Key
 
-// Gemini API integration
-async function getGeminiReply(userMessage) {
+// Cache to store repeated queries (reduce API calls)
+const responseCache = new Map();
+
+// Delay between API calls (avoid rate limits)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Hugging Face API Integration
+async function getHuggingFaceReply(prompt) {
   try {
+    await delay(1500); // Delay to avoid rate limits
+
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+      { inputs: prompt },
       {
-        contents: [{
-          parts: [{
-            text: userMessage
-          }]
-        }]
+        headers: {
+          Authorization: `Bearer ${HF_API_KEY}`,
+        },
       }
     );
-    return response.data.candidates[0].content.parts[0].text;
+    return response.data[0]?.generated_text || "I didn't get a response. Try again!";
   } catch (error) {
-    console.error("Gemini API Error:", error.response?.data || error.message);
-    return "Sorry, I encountered an error. Please try again later.";
+    console.error("Hugging Face Error:", error.response?.data || error.message);
+    return null; // Return null to trigger fallback
   }
+}
+
+// Fallback: Simple responses if Hugging Face fails
+function getFallbackReply() {
+  const fallbacks = [
+    "I’m busy right now. Can you ask again later?",
+    "I didn’t understand that. Could you rephrase?",
+    "Let me check... (Sorry, I’m having trouble responding!)",
+  ];
+  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
 
 // Send WhatsApp message
@@ -39,14 +56,16 @@ async function sendMessage(to, text) {
       `https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`,
       {
         messaging_product: "whatsapp",
+        recipient_type: "individual",
         to,
-        text: { body: text }
+        type: "text",
+        text: { body: text },
       },
       {
         headers: {
           Authorization: `Bearer ${META_TOKEN}`,
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
   } catch (error) {
@@ -60,7 +79,7 @@ app.get("/webhook", (req, res) => {
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode && token && mode === "subscribe" && token === VERIFY_TOKEN) {
+  if (mode && token === VERIFY_TOKEN && mode === "subscribe") {
     console.log("Webhook verified!");
     res.status(200).send(challenge);
   } else {
@@ -76,12 +95,21 @@ app.post("/webhook", async (req, res) => {
 
     const from = message.from;
     const userText = message.text?.body;
-
     if (!userText) return res.sendStatus(200);
 
-    // Get Gemini reply
-    const geminiReply = await getGeminiReply(userText);
-    await sendMessage(from, geminiReply);
+    // Check cache first
+    if (responseCache.has(userText)) {
+      await sendMessage(from, responseCache.get(userText));
+      return res.sendStatus(200);
+    }
+
+    // Get AI reply (Hugging Face -> Fallback)
+    let reply = await getHuggingFaceReply(userText);
+    if (!reply) reply = getFallbackReply();
+
+    // Cache and send
+    responseCache.set(userText, reply);
+    await sendMessage(from, reply);
 
     res.sendStatus(200);
   } catch (error) {
