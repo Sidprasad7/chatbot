@@ -8,7 +8,7 @@ const app = express();
 app.use(bodyParser.json());
 app.use(express.json());
 const VERIFY_TOKEN = "travelbot123";
-const openaiApiKey = process.env.OPENAI_API_KEY;
+const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
 const metaToken = process.env.META_TOKEN;
 const phoneNumberId = process.env.PHONE_NUMBER_ID;
 
@@ -20,13 +20,13 @@ function searchHotels(city) {
   return found ? found.hotels : null;
 }
 
-async function getChatGPTReply(userMessage) {
-  const res = await axios.post("https://api.openai.com/v1/chat/completions", {
-    model: "gpt-3.5-turbo",
+async function getDeepSeekReply(userMessage) {
+  const res = await axios.post("https://api.deepseek.com/v1/chat/completions", {
+    model: "deepseek-chat",
     messages: [{ role: "user", content: userMessage }]
   }, {
     headers: {
-      Authorization: `Bearer ${openaiApiKey}`,
+      Authorization: `Bearer ${deepseekApiKey}`,
       "Content-Type": "application/json"
     }
   });
@@ -41,23 +41,21 @@ async function sendMessage(to, text) {
   }, {
     headers: { Authorization: `Bearer ${metaToken}` }
   });
-  console.log("Sending message to", to, "Text:", text);
 }
 
-// 👇 ADD THIS NEW GET ENDPOINT
 app.get("/webhook", (req, res) => {
-    const mode = req.query["hub.mode"];
-    const token = req.query["hub.verify_token"];
-    const challenge = req.query["hub.challenge"];
-console.log("Received webhook verification request:", { mode, token, challenge });
-    if (mode && token) {
-        if (mode === "subscribe" && token === VERIFY_TOKEN) {
-            console.log("WEBHOOK_VERIFIED");
-            res.status(200).send(challenge);
-        } else {
-            res.sendStatus(403);
-        }
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode && token) {
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+      console.log("WEBHOOK_VERIFIED");
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
     }
+  }
 });
 
 app.post("/webhook", async (req, res) => {
@@ -66,15 +64,11 @@ app.post("/webhook", async (req, res) => {
 
   const from = message.from;
   const userMessage = message.text.body.toLowerCase();
-  console.log("User message:", userMessage);
-console.log("Received webhook body:", JSON.stringify(req.body, null, 2));
-   console.log("Received message from:", from);  // Log the sender's phone number
-    console.log("User message:", userMessage);   // Log the content of the message
+
   if (pendingBookings[from] && userMessage.includes("yes")) {
     const booking = pendingBookings[from];
     delete pendingBookings[from];
     const existing = JSON.parse(fs.readFileSync("./bookings.json"));
-    console.log("Received message payload:", JSON.stringify(req.body, null, 2));
     existing.push({ ...booking, user: from, timestamp: new Date().toISOString() });
     fs.writeFileSync("./bookings.json", JSON.stringify(existing, null, 2));
     await sendMessage(from, `✅ Your booking at ${booking.hotel.name} is confirmed!`);
@@ -115,7 +109,7 @@ console.log("Received webhook body:", JSON.stringify(req.body, null, 2));
     return res.sendStatus(200);
   }
 
-  const gptReply = await getChatGPTReply(userMessage);
+  const gptReply = await getDeepSeekReply(userMessage);
   await sendMessage(from, gptReply);
 
   res.sendStatus(200);
