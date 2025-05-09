@@ -16,7 +16,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 async function getGeminiReply(userMessage) {
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${GEMINI_API_KEY}`,
       {
         contents: [{
           parts: [{
