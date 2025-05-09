@@ -24,7 +24,7 @@ async function getHuggingFaceReply(prompt) {
     await delay(1500); // Delay to avoid rate limits
 
     const response = await axios.post(
-      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1",
+      "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-v0.1",
       { inputs: prompt },
       {
         headers: {
