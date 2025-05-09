@@ -1,14 +1,14 @@
 {
-  "name": "whatsapp-chatbot",
+  "name": "travel-chatbot",
   "version": "1.0.0",
-  "description": "WhatsApp Business Chatbot",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "body-parser": "^1.20.2",
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2"
+    "axios": "^1.6.0",
+    "body-parser": "^1.20.0",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0"
   }
 }
