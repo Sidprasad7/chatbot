@@ -14,31 +14,44 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Gemini API integration
 async function getGeminiReply(userMessage) {
-  const response = await axios.post(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      contents: [{ parts: [{ text: userMessage }] }]
-    }
-  );
-  return response.data.candidates[0].content.parts[0].text;
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [{
+            text: userMessage
+          }]
+        }]
+      }
+    );
+    return response.data.candidates[0].content.parts[0].text;
+  } catch (error) {
+    console.error("Gemini API Error:", error.response?.data || error.message);
+    return "Sorry, I encountered an error. Please try again later.";
+  }
 }
 
 // Send WhatsApp message
 async function sendMessage(to, text) {
-  await axios.post(
-    `https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to,
-      text: { body: text }
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${META_TOKEN}`,
-        "Content-Type": "application/json"
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to,
+        text: { body: text }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${META_TOKEN}`,
+          "Content-Type": "application/json"
+        }
       }
-    }
-  );
+    );
+  } catch (error) {
+    console.error("WhatsApp API Error:", error.response?.data || error.message);
+  }
 }
 
 // Webhook verification (GET)
@@ -57,19 +70,24 @@ app.get("/webhook", (req, res) => {
 
 // Webhook message handler (POST)
 app.post("/webhook", async (req, res) => {
-  const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  if (!message) return res.sendStatus(200);
+  try {
+    const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!message) return res.sendStatus(200);
 
-  const from = message.from;
-  const userText = message.text?.body;
+    const from = message.from;
+    const userText = message.text?.body;
 
-  if (!userText) return res.sendStatus(200);
+    if (!userText) return res.sendStatus(200);
 
-  // Get Gemini reply
-  const geminiReply = await getGeminiReply(userText);
-  await sendMessage(from, geminiReply);
+    // Get Gemini reply
+    const geminiReply = await getGeminiReply(userText);
+    await sendMessage(from, geminiReply);
 
-  res.sendStatus(200);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Webhook Error:", error);
+    res.sendStatus(500);
+  }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
